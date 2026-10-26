@@ -1,0 +1,4 @@
+将此文件夹内全部文件上传到自己的 GitHub 仓库根目录，之后在 Render 使用该仓库部署。
+构建命令：pip install -r requirements.txt
+启动命令：gunicorn --bind 0.0.0.0:$PORT app:app
+注意：Render Free 服务本地数据库不保证持久化，重新部署可能丢失上传记录。正式使用需接入持久化数据库。

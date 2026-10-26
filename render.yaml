@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: caimo-pdf-statistics
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    autoDeployTrigger: commit
