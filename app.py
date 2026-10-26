@@ -1,4 +1,4 @@
-import os,re,sqlite3,io
+import os,re,sqlite3,io,logging,traceback
 from datetime import datetime
 from pathlib import Path
 from flask import Flask,request,jsonify,render_template,send_file
@@ -9,6 +9,7 @@ from openpyxl.utils import get_column_letter
 
 BASE=Path(__file__).resolve().parent
 app=Flask(__name__)
+app.config['MAX_CONTENT_LENGTH']=30 * 1024 * 1024
 DB=Path(os.environ.get('DB_PATH',str(BASE/'data.db')))
 FIELDS=['date','document','line_no','material_code','item_name','specification','quantity','unit','production_no','sales_order','source_file']
 
@@ -90,7 +91,9 @@ def upload():
    c.execute('DELETE FROM materials WHERE source_file=?',(os.path.basename(f.filename),))
    c.executemany('INSERT INTO materials('+','.join(FIELDS)+') VALUES ('+','.join('?' for _ in FIELDS)+')',[[r[k] for k in FIELDS] for r in rows]);c.commit()
    added+=len(rows);files.append(f.filename)
-  except Exception as ex:warnings.append(f'{f.filename}：解析失败 {str(ex)}')
+  except Exception as ex:
+   app.logger.exception('PDF upload parsing failed: %s', f.filename)
+   warnings.append(f'{f.filename}：解析失败 {str(ex)}')
  c.close();return jsonify(added=added,files=files,warnings=warnings)
 
 def query_rows():

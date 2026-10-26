@@ -14,6 +14,28 @@ function resetFilters(){['start','end','order','material','document'].forEach(k=
 function downloadXlsx(){location.href='/api/export?'+params()}
 async function refreshFiles(){const x=await(await fetch('/api/files')).json();$('files').innerHTML=x.files.map(f=>`<span class="filechip">📄 ${esc(f.source_file)}（${f.count}行）<button class="danger" data-remove="${esc(f.source_file)}">删除</button></span>`).join('')}
 async function removeFile(name){if(!confirm('删除该文件的全部领料记录？'))return;await fetch('/api/files/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});refresh()}
-async function upload(files){if(!files.length)return;const form=new FormData();for(let f of files)form.append('files',f);$('status').textContent='正在解析 '+files.length+' 个 PDF 文件…';try{let response=await fetch('/api/upload',{method:'POST',body:form});let x=await response.json();$('status').textContent=`成功导入 ${x.added} 行，${x.files.length} 份 PDF。`+(x.warnings.length?'\n提示：'+x.warnings.join('\n'):'');refresh()}catch(e){$('status').textContent='上传失败：'+e.message}}
+async function upload(files){
+ if(!files.length)return;
+ const selected=Array.from(files);
+ let added=0, completed=0, warnings=[];
+ for(let i=0;i<selected.length;i++){
+  const f=selected[i];
+  $('status').textContent=`正在上传并解析第 ${i+1}/${selected.length} 份：${f.name}`;
+  try{
+   const fd=new FormData();fd.append('files',f);
+   const response=await fetch('/api/upload',{method:'POST',body:fd});
+   const body=await response.text();
+   if(!response.ok)throw new Error(`服务器 HTTP ${response.status}：${body.slice(0,160)}`);
+   let x;
+   try{x=JSON.parse(body)}catch(e){throw new Error('服务器返回了非JSON内容：'+body.slice(0,140))}
+   added+=x.added||0;completed+=(x.files||[]).length;
+   warnings.push(...(x.warnings||[]));
+  }catch(e){
+   warnings.push(`${f.name}：请求失败：${e.message}。如出现 Failed to fetch，可能是服务连接中断或服务器处理超时，请检查 Render Logs。`);
+  }
+ }
+ $('status').textContent=`完成：成功导入 ${added} 行，${completed}/${selected.length} 份 PDF。`+(warnings.length?'\n提示：'+warnings.join('\n'):'');
+ await refresh();
+}
 $('files').addEventListener('click',e=>{if(e.target.matches('[data-remove]'))removeFile(e.target.getAttribute('data-remove'))});$('pdf').addEventListener('change',e=>{upload(e.target.files);e.target.value=''});$('drop').addEventListener('dragover',e=>{e.preventDefault();e.currentTarget.style.background='#e6f4ff'});$('drop').addEventListener('dragleave',e=>e.currentTarget.style.background='');$('drop').addEventListener('drop',e=>{e.preventDefault();e.currentTarget.style.background='';upload(e.dataTransfer.files)});refresh();
 </script></body></html>
